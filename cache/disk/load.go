@@ -584,6 +584,7 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64, cc CacheConfig) error 
 	// file suddenly evicts thousands of old small files.
 	go c.lru.performQueuedEvictionsContinuously()
 
+        start := time.Now()
 	for i := 0; i < len(result.item); i++ {
 		ok := c.lru.Add(result.metadata[i].lookupKey, *result.item[i])
 		if !ok {
@@ -601,6 +602,9 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64, cc CacheConfig) error 
 	for c.lru.queuedEvictionsSize.Load() > 0 {
 		time.Sleep(200 * time.Millisecond)
 	}
+
+        duration := time.Since(start)
+        log.Printf("Duration for loading and evicting files: %.0f s\n", duration.Seconds())
 
 	log.Println("Finished loading disk cache files.")
 
