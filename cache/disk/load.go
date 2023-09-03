@@ -1,6 +1,7 @@
 package disk
 
 import (
+        "context"
 	"fmt"
 	"log"
 	"math"
@@ -586,6 +587,8 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64) error {
 
 	c.lru = NewSizedLRU(maxSizeBytes, onEvict, len(result.item))
 
+        start := time.Now()
+
 	for i := 0; i < len(result.item); i++ {
 		ok := c.lru.Add(result.metadata[i].lookupKey, *result.item[i])
 		if !ok {
@@ -595,6 +598,23 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64) error {
 			}
 		}
 	}
+
+        log.Println("Waiting for remaining evictions...")
+        // Asuming all evictions has completed if we manage to acquire ALL fileRemovalSem.
+        // There is a risk that we get the sempahore while there are others still waiting for it
+        // so the assumption is not reliable, but in that case it will return
+        // too early and not too late, so the actual duration is >= the reported duration.
+        // This ugly temporary hack should obviously not be used in production!
+        if strings.HasPrefix(runtime.GOOS, "darwin") {
+                c.fileRemovalSem.Acquire(context.Background(), 3000)
+                c.fileRemovalSem.Release(3000)
+        } else {
+                c.fileRemovalSem.Acquire(context.Background(), 5000)
+                c.fileRemovalSem.Release(5000)
+        }
+
+        duration := time.Since(start)
+        log.Printf("Duration for loading and evicting files: %.0f s\n", duration.Seconds())
 
 	log.Println("Finished loading disk cache files.")
 
