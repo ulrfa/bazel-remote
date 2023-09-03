@@ -615,6 +615,7 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64) error {
 
 	c.lru = NewSizedLRU(maxSizeBytes, onEvict, len(result.item))
 
+        start := time.Now()
 	for i := 0; i < len(result.item); i++ {
 		err := c.lru.Add(result.metadata[i].lookupKey, *result.item[i])
 		if err != nil {
@@ -622,6 +623,13 @@ func (c *diskCache) loadExistingFiles(maxSizeBytes int64) error {
 			return err
 		}
 	}
+
+        log.Println("Waiting for remaining evictions...")
+        for len(evictionQueue) > 0 {
+                time.Sleep(200 * time.Millisecond)
+        }
+        duration := time.Since(start)
+        log.Printf("Duration for loading and evicting files: %.0f s\n", duration.Seconds())
 
 	log.Println("Finished loading disk cache files.")
 
